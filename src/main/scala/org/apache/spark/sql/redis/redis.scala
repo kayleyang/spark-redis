@@ -21,6 +21,7 @@ package object redis {
   val SqlOptionModel = "model"
   val SqlOptionModelBinary = "binary"
   val SqlOptionModelHash = "hash"
+  val SqlOptionModelJson = "json"
   val SqlOptionInferSchema = "infer.schema"
   val SqlOptionKeyColumn = "key.column"
   val SqlOptionTTL = "ttl"

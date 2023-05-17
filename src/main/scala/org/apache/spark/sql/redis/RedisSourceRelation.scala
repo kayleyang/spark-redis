@@ -2,7 +2,6 @@ package org.apache.spark.sql.redis
 
 import java.util.UUID
 import java.util.{List => JList}
-
 import com.redislabs.provider.redis.rdd.Keys
 import com.redislabs.provider.redis.util.ConnectionUtils.withConnection
 import com.redislabs.provider.redis.util.Logging
@@ -19,6 +18,7 @@ import redis.clients.jedis.{PipelineBase, Protocol}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.util.parsing.json.JSON
 
 class RedisSourceRelation(override val sqlContext: SQLContext,
                           parameters: Map[String, String],
@@ -171,6 +171,8 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
       val keyType =
         if (persistenceModel == SqlOptionModelBinary) {
           RedisDataTypeString
+        } else if (persistenceModel == SqlOptionModelJson) {
+          RedisDataTypeString
         } else {
           RedisDataTypeHash
         }
@@ -221,9 +223,9 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
     * infer schema from a random redis row
     */
   private def inferSchema(): StructType = {
-    if (persistenceModel != SqlOptionModelHash) {
+    if (persistenceModel != SqlOptionModelHash && persistenceModel != SqlOptionModelJson) {
       throw new IllegalArgumentException(s"Cannot infer schema from model '$persistenceModel'. " +
-        s"Currently, only '$SqlOptionModelHash' is supported")
+        s"Currently, only '$SqlOptionModelHash'/ '$SqlOptionModelJson' is supported")
     }
     val keys = sc.fromRedisKeyPattern(dataKeyPattern)
     if (keys.isEmpty()) {
@@ -231,10 +233,19 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
     } else {
       val firstKey = keys.first()
       val node = getMasterNode(redisConfig.hosts, firstKey)
-      withConnection(node.connect()) { conn =>
-        val results = conn.hgetAll(firstKey).asScala.toSeq :+ keyName -> firstKey
-        val fields = results.map(kv => StructField(kv._1, StringType)).toArray
-        StructType(fields)
+      if (persistenceModel == SqlOptionModelJson) {
+        withConnection(node.connect()) { conn =>
+          val result = conn.get(firstKey)
+          val fields = JSON.parseFull(result).getOrElse(0).asInstanceOf[Map[String, String]]
+            .keys.map(key => StructField(key, StringType)).toArray
+          StructType(fields)
+        }
+      } else {
+        withConnection(node.connect()) { conn =>
+          val results = conn.hgetAll(firstKey).asScala.toSeq :+ keyName -> firstKey
+          val fields = results.map(kv => StructField(kv._1, StringType)).toArray
+          StructType(fields)
+        }
       }
     }
   }
