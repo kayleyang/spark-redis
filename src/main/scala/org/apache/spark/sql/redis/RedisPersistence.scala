@@ -40,6 +40,7 @@ object RedisPersistence {
   private val providers =
     Map(SqlOptionModelBinary -> new BinaryRedisPersistence(),
       SqlOptionModelJson -> new JsonRedisPersistence(),
+      SqlOptionModelText -> new TextRedisPersistence(),
       SqlOptionModelHash -> new HashRedisPersistence())
 
   def apply(model: String): RedisPersistence[Any] = {

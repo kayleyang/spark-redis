@@ -161,7 +161,7 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
       }
     } else {
       // filter schema columns, it should be in the same order as given 'requiredColumns'
-      val requiredSchema = {
+      var requiredSchema = {
         val fieldsMap = schema.fields.map(f => (f.name, f)).toMap
         val requiredFields = requiredColumns.map { c =>
           fieldsMap(c)
@@ -172,6 +172,8 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
         if (persistenceModel == SqlOptionModelBinary) {
           RedisDataTypeString
         } else if (persistenceModel == SqlOptionModelJson) {
+          RedisDataTypeString
+        } else if (persistenceModel == SqlOptionModelText) {
           RedisDataTypeString
         } else {
           RedisDataTypeHash
@@ -223,9 +225,11 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
     * infer schema from a random redis row
     */
   private def inferSchema(): StructType = {
-    if (persistenceModel != SqlOptionModelHash && persistenceModel != SqlOptionModelJson) {
+    if (persistenceModel != SqlOptionModelHash
+      && persistenceModel != SqlOptionModelJson
+      && persistenceModel != SqlOptionModelText) {
       throw new IllegalArgumentException(s"Cannot infer schema from model '$persistenceModel'. " +
-        s"Currently, only '$SqlOptionModelHash'/ '$SqlOptionModelJson' is supported")
+        s"Currently, only '$SqlOptionModelHash'/ '$SqlOptionModelJson'/ '$SqlOptionModelText' is supported")
     }
     val keys = sc.fromRedisKeyPattern(dataKeyPattern)
     if (keys.isEmpty()) {
@@ -240,6 +244,8 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
             .keys.map(key => StructField(key, StringType)).toArray
           StructType(fields)
         }
+      } else if (persistenceModel == SqlOptionModelText) {
+          StructType(Array(StructField("value", StringType)))
       } else {
         withConnection(node.connect()) { conn =>
           val results = conn.hgetAll(firstKey).asScala.toSeq :+ keyName -> firstKey

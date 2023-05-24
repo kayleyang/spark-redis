@@ -3,15 +3,13 @@ package org.apache.spark.sql.redis
 import com.redislabs.provider.redis.util.ParseUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import redis.clients.jedis.Pipeline
-
-import scala.util.parsing.json.{JSON, JSONObject}
 
 /**
   * @author The Viet Nguyen
   */
-class JsonRedisPersistence extends RedisPersistence[String] {
+class TextRedisPersistence extends RedisPersistence[String] {
 
   override def save(pipeline: Pipeline, key: String, value: String, ttl: Int): Unit = {
     if (ttl > 0) {
@@ -35,14 +33,14 @@ class JsonRedisPersistence extends RedisPersistence[String] {
       .map { case (k, v) =>
         k -> String.valueOf(v)
       }
-    JSONObject(kvMap).toString()
+    kvMap.values.mkString(",")
   }
 
   override def decodeRow(keyMap: (String, String), value: String, schema: StructType,
                          requiredColumns: Seq[String]): Row = {
-    JSON.globalNumberParser = {input: String => input}
-    val results = JSON.parseFull(value).getOrElse(0).asInstanceOf[Map[String, String]]
-    val fieldsValue = ParseUtils.parseFields(results.filterKeys(requiredColumns.toSet), schema)
-    new GenericRowWithSchema(fieldsValue, schema)
+    val newSchema = StructType(Array(StructField("value", StringType)))
+    val results = Array(("value", value)) :+ keyMap
+    val fieldsValue = ParseUtils.parseFields(results.toMap, newSchema)
+    new GenericRowWithSchema(fieldsValue, newSchema)
   }
 }
