@@ -15,7 +15,7 @@ object ParseUtils {
   def parseFields(value: Map[String, String], schema: StructType): Array[Any] =
     schema.fields.map { field =>
       val fieldName = field.name
-      val fieldValue = value(fieldName)
+      val fieldValue = value.getOrElse(fieldName, null)
       parseValue(field.dataType, fieldValue)
     }
 
