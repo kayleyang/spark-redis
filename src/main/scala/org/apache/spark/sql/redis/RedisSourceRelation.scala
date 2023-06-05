@@ -1,7 +1,5 @@
 package org.apache.spark.sql.redis
 
-import java.util.UUID
-import java.util.{List => JList}
 import com.redislabs.provider.redis.rdd.Keys
 import com.redislabs.provider.redis.util.ConnectionUtils.withConnection
 import com.redislabs.provider.redis.util.Logging
@@ -16,6 +14,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import redis.clients.jedis.{PipelineBase, Protocol}
 
+import java.util.{UUID, List => JList}
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.util.parsing.json.JSON
@@ -169,14 +168,10 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
         StructType(requiredFields)
       }
       val keyType =
-        if (persistenceModel == SqlOptionModelBinary) {
-          RedisDataTypeString
-        } else if (persistenceModel == SqlOptionModelJson) {
-          RedisDataTypeString
-        } else if (persistenceModel == SqlOptionModelText) {
-          RedisDataTypeString
-        } else {
+        if (persistenceModel == SqlOptionModelHash) {
           RedisDataTypeHash
+        } else {
+          RedisDataTypeString
         }
       keysRdd.mapPartitions { partition =>
         // grouped iterator to only allocate memory for a portion of rows
@@ -242,10 +237,10 @@ class RedisSourceRelation(override val sqlContext: SQLContext,
           val result = conn.get(firstKey)
           val fields = JSON.parseFull(result).getOrElse(0).asInstanceOf[Map[String, String]]
             .keys.map(key => StructField(key, StringType)).toArray
-          StructType(fields)
+          StructType(fields :+ StructField("_id", StringType))
         }
       } else if (persistenceModel == SqlOptionModelText) {
-          StructType(Array(StructField("value", StringType)))
+          StructType(Array(StructField("_id", StringType), StructField("content", StringType)))
       } else {
         withConnection(node.connect()) { conn =>
           val results = conn.hgetAll(firstKey).asScala.toSeq :+ keyName -> firstKey

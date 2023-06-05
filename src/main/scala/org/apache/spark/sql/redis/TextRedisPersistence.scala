@@ -38,9 +38,8 @@ class TextRedisPersistence extends RedisPersistence[String] {
 
   override def decodeRow(keyMap: (String, String), value: String, schema: StructType,
                          requiredColumns: Seq[String]): Row = {
-    val newSchema = StructType(Array(StructField("value", StringType)))
-    val results = Array(("value", value)) :+ keyMap
-    val fieldsValue = ParseUtils.parseFields(results.toMap, newSchema)
-    new GenericRowWithSchema(fieldsValue, newSchema)
+    val results = Array(("content", value)) :+ keyMap
+    val fieldsValue = ParseUtils.parseFields(results.toMap, schema)
+    new GenericRowWithSchema(fieldsValue, schema)
   }
 }

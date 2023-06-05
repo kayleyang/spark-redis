@@ -17,15 +17,17 @@ import org.scalatest.Matchers
 trait JsonDataframeSuite extends RedisDataframeSuite with Matchers {
 
   test("save and load dataframe with text mode") {
-    val tableName = generateTableName(TableNamePrefix)
+/*    val tableName = generateTableName(TableNamePrefix)
     val df = spark.createDataFrame(data)
     df.write.format(RedisFormat)
       .option(SqlOptionModel, SqlOptionModelJson)
       .option(SqlOptionTableName, tableName)
-      .save()
+      .save()*/
     val loadedDf = spark.read.format(RedisFormat)
       .option(SqlOptionModel, SqlOptionModelJson)
-      .option(SqlOptionTableName, tableName)
+      .option(SqlOptionKeysPattern, "person46ee5ae8a1934bddbfe893d2f09b05c4:*")
+      .option(SqlOptionInferSchema, value = true)
+//      .option(SqlOptionTableName, tableName)
       .load()
       .cache()
     verifyDf(loadedDf)

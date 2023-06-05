@@ -41,7 +41,8 @@ class JsonRedisPersistence extends RedisPersistence[String] {
   override def decodeRow(keyMap: (String, String), value: String, schema: StructType,
                          requiredColumns: Seq[String]): Row = {
     JSON.globalNumberParser = {input: String => input}
-    val results = JSON.parseFull(value).getOrElse(0).asInstanceOf[Map[String, String]]
+    var results = JSON.parseFull(value).getOrElse(0).asInstanceOf[Map[String, String]]
+    results += keyMap
     val fieldsValue = ParseUtils.parseFields(results.filterKeys(requiredColumns.toSet), schema)
     new GenericRowWithSchema(fieldsValue, schema)
   }
